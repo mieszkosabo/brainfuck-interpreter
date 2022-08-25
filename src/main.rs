@@ -1,4 +1,7 @@
-use std::{io::{self, Read}, char};
+use std::{io::{self, Read}, char, fs};
+use std::env;
+
+use anyhow::{Result, anyhow, Context};
 
 #[derive(PartialEq, Debug)]
 enum Instruction {
@@ -12,18 +15,19 @@ enum Instruction {
     LoopEnd
 }
 
-impl From<char> for Instruction {
-    fn from(c: char) -> Instruction {
+impl TryFrom<char> for Instruction {
+    type Error = anyhow::Error;
+    fn try_from(c: char) -> Result<Instruction> {
         match c {
-            '>' => Instruction::MoveRight,
-            '<' => Instruction::MoveLeft,
-            '+' => Instruction::Inc,
-            '-' => Instruction::Dec,
-            '.' => Instruction::Output,
-            ',' => Instruction::Input,
-            '[' => Instruction::LoopStart,
-            ']' => Instruction::LoopEnd,
-            _ => panic!("Unknown instruction: {}", c)
+            '>' => Ok(Instruction::MoveRight),
+            '<' => Ok(Instruction::MoveLeft),
+            '+' => Ok(Instruction::Inc),
+            '-' => Ok(Instruction::Dec),
+            '.' => Ok(Instruction::Output),
+            ',' => Ok(Instruction::Input),
+            '[' => Ok(Instruction::LoopStart),
+            ']' => Ok(Instruction::LoopEnd),
+            _ => Err(anyhow!("Unknown instruction: {}", c))
         }
     }
 }
@@ -123,16 +127,21 @@ fn interpret_many(instructions: Vec<Instruction>) {
     }
 }
 
-fn get_input() -> String {
-    return "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.".to_string()
-}
 
-fn main() {
-    let instructions: Vec<Instruction> = get_input()
+fn main() -> Result<()> {
+    let args: Vec<String> = env::args().collect();
+    let file_path = args.get(1)
+        .context("Error, filepath should be given as the first argument")?;
+    let program_code = fs::read_to_string(file_path)
+        .context("Error, could not read the file")?;
+
+    let instructions: Vec<Instruction> = program_code
         .as_bytes()
         .into_iter()
-        .map(|x| char::from(*x).into())
+        .flat_map(|x| char::from(*x).try_into())
         .collect();
 
     interpret_many(instructions);
+
+    Ok(())
 }
